@@ -12,13 +12,12 @@ JOURNAL_FOLDER = os.path.expanduser(
 JOURNAL_PREFIX = "Journal.2025-11-"
 TARGET_GENUS = "Radicoida"
 
-# === COUNTERS ===
-on_hand = 0
-submitted = 0
+# === PER-COMMANDER COUNTERS ===
+# commanders[name] = {"on_hand": int, "submitted": int}
+commanders = {}
 
 # Track processed lines
 processed = set()
-
 
 # === DRAGGABLE OVERLAY ===
 def create_overlay():
@@ -28,11 +27,11 @@ def create_overlay():
     root.overrideredirect(True)
     root.attributes("-alpha", 0.80)
 
-    # Initial position
-    root.geometry("+100+450")
+    # Move overlay left so extra text fits
+    root.geometry("+30+400")
 
     var = StringVar()
-    var.set("Radicoida Scans\nSubmitted:\t0\nOn-hand:\t0")
+    var.set("Radicoida Scans\n(no data yet)")
 
     label = tk.Label(
         root,
@@ -40,9 +39,10 @@ def create_overlay():
         font=("Euro Caps", 18, "bold"),
         fg="lime",
         bg="black",
-        padx=10,
-        pady=8,
+        padx=20,      # widened
+        pady=10,
         justify="left",
+        anchor="w",   # align text left
     )
     label.pack()
 
@@ -64,7 +64,9 @@ def create_overlay():
 
 # === JOURNAL SCANNER ===
 def scan_journals(var):
-    global on_hand, submitted
+
+    global commanders
+    current_cmr = None
 
     while True:
         try:
@@ -78,12 +80,12 @@ def scan_journals(var):
                 path = os.path.join(JOURNAL_FOLDER, fname)
 
                 with open(path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        if line in processed:
+                    for raw in f:
+                        if raw in processed:
                             continue
-                        processed.add(line)
+                        processed.add(raw)
 
-                        line = line.strip()
+                        line = raw.strip()
                         if not line.startswith("{"):
                             continue
 
@@ -94,24 +96,42 @@ def scan_journals(var):
 
                         ev = event.get("event")
 
-                        # Analyse scan
+                        # === Detect commander via LoadGame ===
+                        if ev == "LoadGame":
+                            cmr = event.get("Commander")
+                            if cmr:
+                                current_cmr = cmr
+                                if cmr not in commanders:
+                                    commanders[cmr] = {"on_hand": 0, "submitted": 0}
+                            continue
+
+                        # === Skip until LoadGame detected ===
+                        if not current_cmr:
+                            continue  
+
+                        # === Add commander to commander list ===
+                        if current_cmr not in commanders:
+                            commanders[current_cmr] = {"on_hand": 0, "submitted": 0}
+
+                        # === Get Current Commander Data===
+                        cmrdata = commanders[current_cmr]
+
+                        # === Analyse scan ===
                         if ev == "ScanOrganic":
-                            if (
-                                event.get("ScanType") == "Analyse"
-                                and event.get("Genus_Localised") == TARGET_GENUS
-                            ):
-                                on_hand += 1
+                            if (event.get("ScanType") == "Analyse" and
+                                event.get("Genus_Localised") == TARGET_GENUS):
+                                cmrdata["on_hand"] += 1
 
-                        # SellOrganicData resets
+                        # === SellOrganicData ===
                         if ev == "SellOrganicData":
-                            submitted += on_hand
-                            on_hand = 0
+                            cmrdata["submitted"] += cmrdata["on_hand"]
+                            cmrdata["on_hand"] = 0
 
-                        # Update overlay
+                        # === Update overlay text ===
                         var.set(
                             f"Radicoida Scans\n"
-                            f"Submitted: {submitted}\n"
-                            f"On-hand: {on_hand}"
+                            f"Submitted: {cmrdata['submitted']}\n"
+                            f"On-hand: {cmrdata['on_hand']}"
                         )
 
             time.sleep(1)
