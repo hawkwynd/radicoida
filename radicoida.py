@@ -29,6 +29,10 @@ def create_overlay():
 
     # Move overlay left so extra text fits
     root.geometry("+30+400")
+    
+    # Esc key exits the application
+    root.bind("<Escape>", lambda e: root.destroy())
+
 
     var = StringVar()
     var.set("Radicoida Scans\n(no data yet)")
@@ -36,7 +40,7 @@ def create_overlay():
     label = tk.Label(
         root,
         textvariable=var,
-        font=("Euro Caps", 18, "bold"),
+        font=("Euro Caps", 16, "normal"),
         fg="lime",
         bg="black",
         padx=20,      # widened
@@ -58,6 +62,8 @@ def create_overlay():
 
     label.bind("<Button-1>", start_move)
     label.bind("<B1-Motion>", do_move)
+    
+
 
     return root, var
 
@@ -71,7 +77,7 @@ def scan_journals(var):
     while True:
         try:
             files = [
-                f for f in os.listdir(JOURNAL_FOLDER)
+                f for f in os.listdir( JOURNAL_FOLDER )
                 if f.startswith(JOURNAL_PREFIX)
             ]
             files.sort()
@@ -99,6 +105,7 @@ def scan_journals(var):
                         # === Detect commander via LoadGame ===
                         if ev == "LoadGame":
                             cmr = event.get("Commander")
+                            
                             if cmr:
                                 current_cmr = cmr
                                 if cmr not in commanders:
@@ -129,9 +136,10 @@ def scan_journals(var):
 
                         # === Update overlay text ===
                         var.set(
-                            f"Radicoida Scans\n"
+                            f"Radicoida Scans by {current_cmr}\n"
                             f"Submitted: {cmrdata['submitted']}\n"
-                            f"On-hand: {cmrdata['on_hand']}"
+                            f"On-hand: {cmrdata['on_hand']}\n"
+                            f"Esc to Exit"
                         )
 
             time.sleep(1)
